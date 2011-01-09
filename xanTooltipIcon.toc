@@ -1,6 +1,7 @@
 ## Interface: 40000
-## Title: XanTooltipIcon 1.1
-## Author: Xruptor
+## Title: XanTooltipIcon
 ## Notes: Adds an icon to tooltips for achievement or item chat links.
+## Author: Xruptor
+## Version: 1.1
 
 xanTooltipIcon.lua
