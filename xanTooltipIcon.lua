@@ -5,6 +5,11 @@
 
 local registry = {}
 
+local debugf = tekDebug and tekDebug:GetFrame("xanTooltipIcon")
+local function Debug(...)
+    if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
+end
+
 local hookfactory = function(hook,orig)
 	return function(self,...)
 		local reg = registry[self]
