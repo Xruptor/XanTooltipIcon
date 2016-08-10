@@ -3,66 +3,35 @@
 --what it looked like.
 --Xruptor
 
-local registry = {}
-
 local debugf = tekDebug and tekDebug:GetFrame("xanTooltipIcon")
 local function Debug(...)
     if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
 end
 
-local hookfactory = function(hook,orig)
-	return function(self,...)
-		local reg = registry[self]
-		if reg[orig] then reg[orig](self,...) end
-		hook(reg.button,self,...)
-	end
-end
+local function showTooltipIcon(tooltip, link)
 
-local setItem = hookfactory(function(icon,self)
-    local _,id = self:GetItem()
-    if id then
-		icon:SetNormalTexture(GetItemIcon(id))
-		icon.link = id
-		icon.type = "item"
-	end
-end,"setItem")
-
-
-local cleared = hookfactory(function(icon,self)
-    	icon:SetNormalTexture(nil)
-	icon.doOverlay:Hide()
-	icon.type = nil
-	icon.link = nil
-end,"cleared")
-
-
-local setHyperlink = hookfactory(function(icon,self,link)
-	if not (link and type(link) == "string") then return end
 	local linkType,id = link:match("^([^:]+):(%d+)")
 	if linkType == "achievement" and id then
-		icon.link = GetAchievementLink(id)
-		icon:SetNormalTexture(select(10,GetAchievementInfo(id)))
-		icon.doOverlay:Show()
-		icon.type = "achievement"
+		tooltip.button:SetNormalTexture(select(10,GetAchievementInfo(id)))
+		tooltip.button.doOverlay:Show()
+		tooltip.button.type = "achievement"
 	elseif linkType == "spell" and id then
-		icon.link = GetSpellLink(id)
-		icon:SetNormalTexture(select(3,GetSpellInfo(id)))
-		icon.type = "spell"
+		tooltip.button:SetNormalTexture(select(3,GetSpellInfo(id)))
+		tooltip.button.type = "spell"
+	else
+		tooltip.button:SetNormalTexture(GetItemIcon(id))
+		tooltip.button.type = "item"
 	end
-end,"setHyperlink")
+	
+end
 
 local function RegisterTooltip(tooltip)
 
-	if registry[tooltip] then return end
-	local reg = {}
-	registry[tooltip] = reg
-		
 	local b = CreateFrame("Button",nil,tooltip)
 	b:SetWidth(37)
 	b:SetHeight(37)
 	b:SetPoint("TOPRIGHT",tooltip,"TOPLEFT",0,-3)
-	reg.button = b
-	
+
 	local t = b:CreateTexture(nil,"OVERLAY")
 	t:SetTexture("Interface\\AchievementFrame\\UI-Achievement-IconFrame")
 	t:SetTexCoord(0,0.5625,0,0.5625)
@@ -71,13 +40,36 @@ local function RegisterTooltip(tooltip)
 	t:SetHeight(47)	
 	t:Hide()
 	b.doOverlay = t
-		
-	reg.setItem = tooltip:GetScript("OnTooltipSetItem")
-	reg.cleared = tooltip:GetScript("OnTooltipCleared")
-	reg.setHyperlink = tooltip.SetHyperlink
-	tooltip:SetScript("OnTooltipSetItem",setItem)
-	tooltip:SetScript("OnTooltipCleared",cleared)
-	tooltip.SetHyperlink  = setHyperlink
+	
+	tooltip.button = b
+	tooltip.button.func = showTooltipIcon
+	
 end
 
-RegisterTooltip(ItemRefTooltip)
+local function hookTip(tooltip)
+	
+	--create the button for the tooltip
+	RegisterTooltip(tooltip)
+	
+	tooltip:HookScript("OnHide", function(self)
+		self.button:SetNormalTexture(nil)
+		self.button.doOverlay:Hide()
+		self.button.type = nil		
+	end)	
+
+	tooltip:HookScript('OnTooltipSetItem', function(self)
+		local name, link = self:GetItem()
+		if string.len(name) > 0 and link then --recipes return nil for GetItem() so check for it
+			self.button.func(self, link)
+		end
+	end)
+
+	hooksecurefunc(tooltip, 'SetHyperlink', function(self, link)
+		if link then
+			self.button.func(self, link)
+		end
+	end)
+	
+end
+
+hookTip(ItemRefTooltip)
