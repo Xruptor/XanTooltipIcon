@@ -59,7 +59,7 @@ local function hookTip(tooltip)
 
 	tooltip:HookScript('OnTooltipSetItem', function(self)
 		local name, link = self:GetItem()
-		if string.len(name) > 0 and link then --recipes return nil for GetItem() so check for it
+		if name and string.len(name) > 0 and link then --recipes return nil for GetItem() so check for it
 			self.button.func(self, link)
 		end
 	end)
