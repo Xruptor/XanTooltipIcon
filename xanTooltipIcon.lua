@@ -12,15 +12,21 @@ local function showTooltipIcon(tooltip, link)
 
 	local linkType,id = link:match("^([^:]+):(%d+)")
 	if linkType == "achievement" and id then
-		tooltip.button:SetNormalTexture(select(10,GetAchievementInfo(id)))
-		tooltip.button.doOverlay:Show()
-		tooltip.button.type = "achievement"
+		if GetAchievementInfo(id) and select(10,GetAchievementInfo(id)) then
+			tooltip.button:SetNormalTexture(select(10,GetAchievementInfo(id)))
+			tooltip.button.doOverlay:Show()
+			tooltip.button.type = "achievement"
+		end
 	elseif linkType == "spell" and id then
-		tooltip.button:SetNormalTexture(select(3,GetSpellInfo(id)))
-		tooltip.button.type = "spell"
+		if GetSpellInfo(id) and select(3,GetSpellInfo(id)) then
+			tooltip.button:SetNormalTexture(select(3,GetSpellInfo(id)))
+			tooltip.button.type = "spell"
+		end
 	else
-		tooltip.button:SetNormalTexture(GetItemIcon(id))
-		tooltip.button.type = "item"
+		if id and GetItemIcon(id) then
+			tooltip.button:SetNormalTexture(GetItemIcon(id))
+			tooltip.button.type = "item"
+		end
 	end
 	
 end
