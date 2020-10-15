@@ -9,7 +9,7 @@ local function Debug(...)
 end
 
 local function showTooltipIcon(tooltip, link)
-	if not CanAccessObject(tooltip) then return end
+	if not (issecure() or not tooltip:IsForbidden()) then return end
 	
 	local linkType,id = link:match("^([^:]+):(%d+)")
 	if linkType == "achievement" and id then
