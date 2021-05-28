@@ -8,11 +8,14 @@ local function Debug(...)
     if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
 end
 
+local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+
 local function showTooltipIcon(tooltip, link)
 	if not (issecure() or not tooltip:IsForbidden()) then return end
 	
 	local linkType,id = link:match("^([^:]+):(%d+)")
-	if linkType == "achievement" and id then
+	
+	if isRetail and linkType == "achievement" and id then
 		if GetAchievementInfo(id) and select(10,GetAchievementInfo(id)) then
 			tooltip.button:SetNormalTexture(select(10,GetAchievementInfo(id)))
 			tooltip.button.doOverlay:Show()
@@ -40,7 +43,12 @@ local function RegisterTooltip(tooltip)
 	b:SetPoint("TOPRIGHT",tooltip,"TOPLEFT",0,-3)
 
 	local t = b:CreateTexture(nil,"OVERLAY")
-	t:SetTexture("Interface\\AchievementFrame\\UI-Achievement-IconFrame")
+	
+	if isRetail then
+		t:SetTexture("Interface\\AchievementFrame\\UI-Achievement-IconFrame")
+	else
+		t:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+	end
 	t:SetTexCoord(0,0.5625,0,0.5625)
 	t:SetPoint("CENTER",0,0)
 	t:SetWidth(47)
@@ -50,7 +58,6 @@ local function RegisterTooltip(tooltip)
 	
 	tooltip.button = b
 	tooltip.button.func = showTooltipIcon
-	
 end
 
 local function hookTip(tooltip)
