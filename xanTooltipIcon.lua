@@ -66,7 +66,7 @@ local function hookTip(tooltip)
 	RegisterTooltip(tooltip)
 	
 	tooltip:HookScript("OnHide", function(self)
-		self.button:SetNormalTexture(nil)
+		self.button:SetNormalTexture("Interface\\Icons\\INV_Misc_QuestionMark")
 		self.button.doOverlay:Hide()
 		self.button.type = nil		
 	end)	
