@@ -10,11 +10,24 @@ end
 
 local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
-local function showTooltipIcon(tooltip, link)
+local function showTooltipIcon(tooltip, link, ttType)
 	if not (issecure() or not tooltip:IsForbidden()) then return end
 	
-	local linkType,id = link:match("^([^:]+):(%d+)")
+	local linkType, id
 	
+	if isRetail and ttType then
+		if ttType == 1 then
+			linkType = "spell"
+		elseif ttType == 12 then
+			linkType = "achievement"
+		else
+			linkType = "item"
+		end
+		id = id or link
+	else
+		linkType, id = link:match("^([^:]+):(%d+)")
+	end
+
 	if isRetail and linkType == "achievement" and id then
 		if GetAchievementInfo(id) and select(10,GetAchievementInfo(id)) then
 			tooltip.button:SetNormalTexture(select(10,GetAchievementInfo(id)))
@@ -60,30 +73,47 @@ local function RegisterTooltip(tooltip)
 	tooltip.button.func = showTooltipIcon
 end
 
-local function hookTip(tooltip)
+local function hookTip()
 	
 	--create the button for the tooltip
-	RegisterTooltip(tooltip)
+	RegisterTooltip(ItemRefTooltip)
 	
-	tooltip:HookScript("OnHide", function(self)
+	ItemRefTooltip:HookScript("OnHide", function(self)
 		self.button:SetNormalTexture("Interface\\Icons\\INV_Misc_QuestionMark")
 		self.button.doOverlay:Hide()
 		self.button.type = nil		
-	end)	
-
-	tooltip:HookScript('OnTooltipSetItem', function(self)
-		local name, link = self:GetItem()
-		if name and string.len(name) > 0 and link then --recipes return nil for GetItem() so check for it
-			self.button.func(self, link)
-		end
 	end)
-
-	hooksecurefunc(tooltip, 'SetHyperlink', function(self, link)
-		if link then
-			self.button.func(self, link)
+	
+	if isRetail then
+	
+		--Note: tooltip data type corresponds to the Enum.TooltipDataType types
+		--i.e Enum.TooltipDataType.Unit it type 2
+		--see https://github.com/Ketho/wow-ui-source-df/blob/e6d3542fc217592e6144f5934bf22c5d599c1f6c/Interface/AddOns/Blizzard_APIDocumentationGenerated/TooltipInfoSharedDocumentation.lua
+		
+		local function OnTooltipSetAllTypes(tooltip, data)
+			if (tooltip == ItemRefTooltip and data) then
+				ItemRefTooltip.button.func(ItemRefTooltip, data.hyperlink or data.id, data.type)
+			end
 		end
-	end)
+		TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, OnTooltipSetAllTypes)
+		
+	else
+
+		ItemRefTooltip:HookScript('OnTooltipSetItem', function(self)
+			local name, link = self:GetItem()
+			if name and string.len(name) > 0 and link then --recipes return nil for GetItem() so check for it
+				self.button.func(self, link)
+			end
+		end)
+
+		hooksecurefunc(ItemRefTooltip, 'SetHyperlink', function(self, link)
+			if link then
+				self.button.func(self, link)
+			end
+		end)
+	
+	end
 	
 end
 
-hookTip(ItemRefTooltip)
+hookTip()
