@@ -1,11 +1,8 @@
-## Interface: 100207
-## Interface-Retail: 100207
-## Interface-Classic: 11502
-## Interface-Cata: 40400
+## Interface: 100207, 110000, 110002, 11502, 40400
 ## Title: XanTooltipIcon
 ## Notes: Adds an icon to tooltips for achievement or item chat links.
 ## Author: Xruptor
-## Version: 4.1
+## Version: 4.2
 ## IconTexture: 3610517
 ## X-Curse-Project-ID: 28605
 ## X-WoWI-ID: 19201
