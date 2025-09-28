@@ -70,7 +70,7 @@ local function showTooltipIcon(tooltip, link, ttType)
 		linkType, id = link:match("^([^:]+):(%d+)")
 	end
 
-	local xGetNumSlots = (C_Spell and C_Spell.GetSpellInfo) or GetSpellInfo
+	local xGetSpellInfo = (C_Spell and C_Spell.GetSpellInfo) or GetSpellInfo
 	local iconTex = 134400 --question mark
 
 	if GetAchievementInfo and linkType and linkType == "achievement" and id then
@@ -79,14 +79,14 @@ local function showTooltipIcon(tooltip, link, ttType)
 			tooltip.button.doOverlay:Show()
 			tooltip.button.type = "achievement"
 		end
-	elseif xGetNumSlots and linkType and linkType == "spell" and id then
-		local iVal = xGetNumSlots(id)
+	elseif xGetSpellInfo and linkType and linkType == "spell" and id then
+		local iVal = xGetSpellInfo(id)
 
 		if iVal then
 			if type(iVal) =="table" then
 				iconTex = iVal.iconID
 			else
-				iconTex = select(3,xGetNumSlots(id)) or 134400
+				iconTex = select(3,xGetSpellInfo(id)) or 134400
 			end
 
 			if iconTex then
