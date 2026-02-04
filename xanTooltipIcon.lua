@@ -3,183 +3,210 @@
 --what it looked like.
 --Xruptor
 
-local debugf = tekDebug and tekDebug:GetFrame("xanTooltipIcon")
-local function Debug(...)
-    if debugf then debugf:AddMessage(string.join(", ", tostringall(...))) end
-end
-
---local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
-
 local ADDON_NAME, addon = ...
+
+local CreateFrame = CreateFrame
+local UIParent = UIParent
+local strsplit = strsplit
+local tostring = tostring
+local type = type
+local select = select
+local string_len = string.len
+local string_format = string.format
+
+local GetAchievementInfo = GetAchievementInfo
+local GetAddOnMetadata = GetAddOnMetadata
+local IsLoggedIn = IsLoggedIn
+local hooksecurefunc = hooksecurefunc
+local DEFAULT_CHAT_FRAME = DEFAULT_CHAT_FRAME
+
+local QUESTION_MARK_ICON = 134400
+local OVERLAY_ACHIEVEMENT = "Interface\\AchievementFrame\\UI-Achievement-IconFrame"
+local QUESTION_MARK_TEXTURE = "Interface\\Icons\\INV_Misc_QuestionMark"
+
 if not _G[ADDON_NAME] then
 	_G[ADDON_NAME] = CreateFrame("Frame", ADDON_NAME, UIParent, BackdropTemplateMixin and "BackdropTemplate")
 end
 addon = _G[ADDON_NAME]
 
-addon:RegisterEvent("ADDON_LOADED")
-addon:SetScript("OnEvent", function(self, event, ...)
-	if event == "ADDON_LOADED" or event == "PLAYER_LOGIN" then
-		if event == "ADDON_LOADED" then
-			local arg1 = ...
-			if arg1 and arg1 == ADDON_NAME then
-				self:UnregisterEvent("ADDON_LOADED")
-				self:RegisterEvent("PLAYER_LOGIN")
+local function OnEvent(self, event, ...)
+	if event == "ADDON_LOADED" then
+		local arg1 = ...
+		if arg1 == ADDON_NAME then
+			self:UnregisterEvent("ADDON_LOADED")
+			self:RegisterEvent("PLAYER_LOGIN")
+			if IsLoggedIn and IsLoggedIn() then
+				self:EnableAddon()
+				self:UnregisterEvent("PLAYER_LOGIN")
 			end
-			return
-		end
-		if IsLoggedIn() then
-			self:EnableAddon(event, ...)
-			self:UnregisterEvent("PLAYER_LOGIN")
 		end
 		return
 	end
+
+	if event == "PLAYER_LOGIN" then
+		self:EnableAddon()
+		self:UnregisterEvent("PLAYER_LOGIN")
+		return
+	end
+
 	if self[event] then
 		return self[event](self, event, ...)
 	end
-end)
+end
+
+addon:RegisterEvent("ADDON_LOADED")
+addon:SetScript("OnEvent", OnEvent)
 
 local function GetShortItemID(link)
 	if link then
-		if type(link) == "number" then link = tostring(link) end
+		if type(link) == "number" then
+			link = tostring(link)
+		end
 		return link:match("item:(%d+):") or link:match("^(%d+):") or strsplit(";", link) or link
 	end
 end
 
-local function showTooltipIcon(tooltip, link, ttType)
+local function GetSpellIcon(spellID)
+	local spellInfo = (C_Spell and C_Spell.GetSpellInfo) or GetSpellInfo
+	if not spellInfo then return nil end
+	local result = spellInfo(spellID)
+	if not result then return nil end
+	if type(result) == "table" then
+		return result.iconID
+	end
+	local _, _, icon = spellInfo(spellID)
+	return icon
+end
+
+local function GetItemIcon(itemID)
+	if not (C_Item and C_Item.GetItemIconByID) then return nil end
+	local icon = C_Item.GetItemIconByID(itemID)
+	if icon then return icon end
+	local shortID = GetShortItemID(itemID)
+	if shortID and shortID ~= itemID then
+		return C_Item.GetItemIconByID(shortID)
+	end
+	return nil
+end
+
+local function GetAchievementIcon(achID)
+	if not GetAchievementInfo then return nil end
+	local _, _, _, _, _, _, _, _, _, icon = GetAchievementInfo(achID)
+	return icon
+end
+
+local function ShowTooltipIcon(tooltip, link, ttType)
 	if not (issecure() or not tooltip:IsForbidden()) then return end
+	local button = tooltip.button
+	if not button then return end
 
 	local linkType, id
-	local typeSwitch = false
 
 	if ttType then
-		if ttType == 1 then
+		if ttType == 1 then -- Enum.TooltipDataType.Spell
 			linkType = "spell"
-		elseif ttType == 12 then
+		elseif ttType == 12 then -- Enum.TooltipDataType.Achievement
 			linkType = "achievement"
 		else
 			linkType = "item"
 		end
-		id = id or link
-
-		if id and linkType then
-			typeSwitch = true
-		end
+		id = link
 	end
 
-	if not typeSwitch then
+	if not (linkType and id) and link then
 		linkType, id = link:match("^([^:]+):(%d+)")
 	end
 
-	local xGetSpellInfo = (C_Spell and C_Spell.GetSpellInfo) or GetSpellInfo
-	local iconTex = 134400 --question mark
-
-	if GetAchievementInfo and linkType and linkType == "achievement" and id then
-		if GetAchievementInfo(id) and select(10,GetAchievementInfo(id)) then
-			tooltip.button:SetNormalTexture(select(10,GetAchievementInfo(id)))
-			tooltip.button.doOverlay:Show()
-			tooltip.button.type = "achievement"
-		end
-	elseif xGetSpellInfo and linkType and linkType == "spell" and id then
-		local iVal = xGetSpellInfo(id)
-
-		if iVal then
-			if type(iVal) =="table" then
-				iconTex = iVal.iconID
-			else
-				iconTex = select(3,xGetSpellInfo(id)) or 134400
-			end
-
-			if iconTex then
-				tooltip.button:SetNormalTexture(iconTex)
-				tooltip.button.type = "spell"
-			end
-		end
-	else
-		if id and C_Item and C_Item.GetItemIconByID then
-			local result = GetShortItemID(id)
-			local iVal = C_Item.GetItemIconByID(id)
-
-			iVal = iVal or (result and C_Item.GetItemIconByID(result))
-
-			tooltip.button:SetNormalTexture(iVal or iconTex)
-			tooltip.button.type = "item"
-		end
+	if not (linkType and id) then
+		return
 	end
 
+	local iconTex = QUESTION_MARK_ICON
+
+	if linkType == "achievement" then
+		local achIcon = GetAchievementIcon(id)
+		if achIcon then
+			button:SetNormalTexture(achIcon)
+			button.doOverlay:Show()
+			button.type = "achievement"
+			return
+		end
+	elseif linkType == "spell" then
+		button.doOverlay:Hide()
+		local spellIcon = GetSpellIcon(id) or iconTex
+		button:SetNormalTexture(spellIcon)
+		button.type = "spell"
+		return
+	end
+
+	local itemIcon = GetItemIcon(id) or iconTex
+	button.doOverlay:Hide()
+	button:SetNormalTexture(itemIcon)
+	button.type = "item"
 end
 
 local function RegisterTooltip(tooltip)
-
-	local b = CreateFrame("Button",nil,tooltip)
+	local b = CreateFrame("Button", nil, tooltip)
 	b:SetWidth(37)
 	b:SetHeight(37)
-	b:SetPoint("TOPRIGHT",tooltip,"TOPLEFT",0,-3)
+	b:SetPoint("TOPRIGHT", tooltip, "TOPLEFT", 0, -3)
 
-	local t = b:CreateTexture(nil,"OVERLAY")
-
-	if GetAchievementInfo then
-		t:SetTexture("Interface\\AchievementFrame\\UI-Achievement-IconFrame")
-	else
-		t:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-	end
-	t:SetTexCoord(0,0.5625,0,0.5625)
-	t:SetPoint("CENTER",0,0)
+	local t = b:CreateTexture(nil, "OVERLAY")
+	t:SetTexture(GetAchievementInfo and OVERLAY_ACHIEVEMENT or QUESTION_MARK_TEXTURE)
+	t:SetTexCoord(0, 0.5625, 0, 0.5625)
+	t:SetPoint("CENTER", 0, 0)
 	t:SetWidth(47)
 	t:SetHeight(47)
 	t:Hide()
 	b.doOverlay = t
 
 	tooltip.button = b
-	tooltip.button.func = showTooltipIcon
+	tooltip.button.func = ShowTooltipIcon
 end
 
 local function hookTip()
-
 	--create the button for the tooltip
 	RegisterTooltip(ItemRefTooltip)
 
 	ItemRefTooltip:HookScript("OnHide", function(self)
-		self.button:SetNormalTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-		self.button.doOverlay:Hide()
-		self.button.type = nil
+		local button = self.button
+		if not button then return end
+		button:SetNormalTexture(QUESTION_MARK_TEXTURE)
+		button.doOverlay:Hide()
+		button.type = nil
 	end)
 
 	if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
-
 		--Note: tooltip data type corresponds to the Enum.TooltipDataType types
 		--i.e Enum.TooltipDataType.Unit it type 2
 		--see https://github.com/Ketho/wow-ui-source-df/blob/e6d3542fc217592e6144f5934bf22c5d599c1f6c/Interface/AddOns/Blizzard_APIDocumentationGenerated/TooltipInfoSharedDocumentation.lua
-
 		local function OnTooltipSetAllTypes(tooltip, data)
-			if (tooltip == ItemRefTooltip and data) then
-				ItemRefTooltip.button.func(ItemRefTooltip, data.hyperlink or data.id, data.type)
-			end
+			if tooltip ~= ItemRefTooltip or not data then return end
+			ItemRefTooltip.button.func(ItemRefTooltip, data.hyperlink or data.id, data.type)
 		end
 		TooltipDataProcessor.AddTooltipPostCall(TooltipDataProcessor.AllTypes, OnTooltipSetAllTypes)
-
 	else
-
-		ItemRefTooltip:HookScript('OnTooltipSetItem', function(self)
+		ItemRefTooltip:HookScript("OnTooltipSetItem", function(self)
 			local name, link = self:GetItem()
-			if name and string.len(name) > 0 and link then --recipes return nil for GetItem() so check for it
+			if name and string_len(name) > 0 and link then --recipes return nil for GetItem() so check for it
 				self.button.func(self, link)
 			end
 		end)
 
-		hooksecurefunc(ItemRefTooltip, 'SetHyperlink', function(self, link)
+		hooksecurefunc(ItemRefTooltip, "SetHyperlink", function(self, link)
 			if link then
 				self.button.func(self, link)
 			end
 		end)
-
 	end
-
 end
 
 function addon:EnableAddon()
-
 	hookTip()
 
-	local ver = C_AddOns.GetAddOnMetadata(ADDON_NAME,"Version") or '1.0'
-	DEFAULT_CHAT_FRAME:AddMessage(string.format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded", ADDON_NAME, ver or "1.0"))
+	local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+	local ver = (getMeta and getMeta(ADDON_NAME, "Version")) or "1.0"
+	if DEFAULT_CHAT_FRAME then
+		DEFAULT_CHAT_FRAME:AddMessage(string_format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded", ADDON_NAME, ver))
+	end
 end
