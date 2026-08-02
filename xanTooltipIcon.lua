@@ -13,12 +13,15 @@ local type = type
 local select = select
 local string_len = string.len
 local string_format = string.format
+local string_lower = string.lower
+local string_match = string.match
 
 local GetAchievementInfo = GetAchievementInfo
 local GetAddOnMetadata = GetAddOnMetadata
 local IsLoggedIn = IsLoggedIn
 local hooksecurefunc = hooksecurefunc
 local DEFAULT_CHAT_FRAME = DEFAULT_CHAT_FRAME
+local print = print
 
 local QUESTION_MARK_ICON = 134400
 local OVERLAY_ACHIEVEMENT = "Interface\\AchievementFrame\\UI-Achievement-IconFrame"
@@ -56,6 +59,43 @@ end
 
 addon:RegisterEvent("ADDON_LOADED")
 addon:SetScript("OnEvent", OnEvent)
+
+local function PrintMessage(message)
+	if message == nil then return end
+	local prefix = string_format("|cFF99CC33%s|r: ", ADDON_NAME)
+	if DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.AddMessage then
+		DEFAULT_CHAT_FRAME:AddMessage(prefix .. message)
+	else
+		print(prefix .. message)
+	end
+end
+
+local function RegisterSlashCommands()
+	SLASH_XANTOOLTIPICON1 = "/xti"
+	SLASH_XANTOOLTIPICON2 = "/xantooltipicon"
+
+	local function PrintHelp()
+		PrintMessage("Available commands:")
+		PrintMessage("  /xti loaded - Toggle the addon loaded message at login.")
+	end
+
+	SlashCmdList["XANTOOLTIPICON"] = function(cmd)
+		local subcmd = string_match(cmd or "", "^%s*(%S+)")
+		if not subcmd then
+			PrintHelp()
+			return
+		end
+
+		subcmd = string_lower(subcmd)
+		if subcmd == "loaded" or subcmd == "login" then
+			XanTooltipIconDB.addonLoginMsg = not XanTooltipIconDB.addonLoginMsg
+			PrintMessage("Addon loaded message at login: " .. (XanTooltipIconDB.addonLoginMsg and "|cFF20ff20ON|r" or "|cFFFF2020OFF|r"))
+			return
+		end
+
+		PrintHelp()
+	end
+end
 
 local function GetShortItemID(link)
 	if link then
@@ -204,9 +244,16 @@ end
 function addon:EnableAddon()
 	hookTip()
 
-	local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
-	local ver = (getMeta and getMeta(ADDON_NAME, "Version")) or "1.0"
-	if DEFAULT_CHAT_FRAME then
-		DEFAULT_CHAT_FRAME:AddMessage(string_format("|cFF99CC33%s|r [v|cFF20ff20%s|r] loaded", ADDON_NAME, ver))
+	XanTooltipIconDB = XanTooltipIconDB or {}
+	if XanTooltipIconDB.addonLoginMsg == nil then
+		XanTooltipIconDB.addonLoginMsg = true
+	end
+
+	RegisterSlashCommands()
+
+	if XanTooltipIconDB.addonLoginMsg then
+		local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+		local ver = (getMeta and getMeta(ADDON_NAME, "Version")) or "1.0"
+		PrintMessage(string_format("[v|cFF20ff20%s|r] loaded:   /xti", ver))
 	end
 end
