@@ -2,8 +2,8 @@
 ## Title: XanTooltipIcon
 ## Notes: Adds an icon to tooltips for achievement or item chat links.
 ## Author: Xruptor
-## Version: 5.4
-## IconTexture: 3610517
+## Version: 5.5
+## IconTexture: 134442
 ## X-Curse-Project-ID: 28605
 ## X-WoWI-ID: 19201
 ## X-Wago-ID: RBKpJRNE
